@@ -8,10 +8,7 @@
   <meta name="application-name" content="সোহিনী ক্লিনিক্যাল ডায়েট প্ল্যানার" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="icon" href="./icon-192.png" />
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <link rel="apple-touch-icon" href="./icon-192.png" />
   <meta name="description" content="বাংলাদেশি খাবারভিত্তিক multi-disease clinical diet planning tool with persistent patient visit history, follow-up records, diet pattern, fasting/intermittent fasting, therapeutic texture preference, BMI, BMR, TDEE, editable 1/4/6-meal plan with OR/substitution foods and selectable macro targets, functional foods, avoid/limit foods and lifestyle guidance." />
   <style>
     :root{
@@ -364,7 +361,7 @@
     .brand h1,.hero h2,.section-title,.card h3,.metric .value,.stat b,.history-head h3,.empty h3,.condition-card h4{font-family:"Space Grotesk",Inter,"Noto Sans Bengali",sans-serif;letter-spacing:-.3px}
     .app{position:relative}
     .topbar{position:sticky;background:rgba(14,10,28,.72);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-bottom:1px solid var(--line);overflow:visible}
-    .topbar::before{content:"";position:absolute;inset:-140px 0 auto 0;height:280px;pointer-events:none;z-index:-1;
+    .topbar::before{content:"";position:absolute;top:-140px;left:0;right:0;bottom:0;pointer-events:none;z-index:-1;
       background:radial-gradient(560px 220px at 22% 0%, rgba(167,139,250,.35), transparent 70%);
       filter:blur(10px);animation:auroraDrift 16s ease-in-out infinite}
     .brand-mark{background:linear-gradient(145deg,var(--brand),#5b21b6);box-shadow:0 10px 26px rgba(124,58,237,.38)}
@@ -3908,13 +3905,18 @@ document.getElementById('loginSettingsSaveBtn')?.addEventListener('click',async(
   const newEmail=document.getElementById('newLoginEmail').value;
   const newPass=document.getElementById('newLoginPass').value;
   if(!window.ShohineeAuth){msg.textContent='Login system load হয়নি।';msg.className='cloud-message error';return}
-  const result=await window.ShohineeAuth.changeCredentials(curEmail,curPass,newEmail,newPass);
-  msg.textContent=result.message;
-  msg.className='cloud-message '+(result.ok?'ok':'error');
-  if(result.ok){
-    document.getElementById('curLoginEmail').value='';document.getElementById('curLoginPass').value='';
-    document.getElementById('newLoginEmail').value='';document.getElementById('newLoginPass').value='';
-    setTimeout(()=>window.ShohineeAuth.logout(),900);
+  try{
+    const result=await window.ShohineeAuth.changeCredentials(curEmail,curPass,newEmail,newPass);
+    msg.textContent=result.message;
+    msg.className='cloud-message '+(result.ok?'ok':'error');
+    if(result.ok){
+      document.getElementById('curLoginEmail').value='';document.getElementById('curLoginPass').value='';
+      document.getElementById('newLoginEmail').value='';document.getElementById('newLoginPass').value='';
+      setTimeout(()=>window.ShohineeAuth.logout(),900);
+    }
+  }catch(e){
+    msg.textContent='একটি সমস্যা হয়েছে: '+(e&&e.message?e.message:'Unknown error');
+    msg.className='cloud-message error';
   }
 });
 
@@ -3960,11 +3962,9 @@ document.querySelectorAll('.tab').forEach(btn=>btn.addEventListener('click',()=>
   const installBtn = document.getElementById('installAppBtn');
   const isStandalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
 
-  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
-    window.addEventListener('load', function(){
-      navigator.serviceWorker.register('./service-worker.js').catch(function(err){ console.warn('Service worker registration failed', err); });
-    });
-  }
+  // Service worker disabled: this deployment is a single index.html file with no
+  // service-worker.js uploaded alongside it, so registering it just produced a 404.
+  // The app works fully without it; only offline-caching/PWA-install polish is skipped.
 
   window.addEventListener('beforeinstallprompt', function(e){
     e.preventDefault();
@@ -4024,14 +4024,19 @@ document.querySelectorAll('.tab').forEach(btn=>btn.addEventListener('click',()=>
 
   async function handleSubmit(){
     errEl.textContent='';
-    const email=(emailInput.value||'').trim().toLowerCase();
-    const pass=passInput.value||'';
-    const cred=getCred();
-    if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){showError('সঠিক একটি Email দিন।');return}
-    if(!pass){showError('Password দিন।');return}
-    const hash=await sha256(cred.salt+':'+pass);
-    if(email===cred.email&&hash===cred.hash){unlock()}
-    else{showError('ভুল Email অথবা Password।')}
+    try{
+      if(!window.crypto?.subtle){showError('এই connection-এ Login কাজ করছে না — সঠিক https:// hosted link ব্যবহার করুন (http:// বা local file নয়)।');return}
+      const email=(emailInput.value||'').trim().toLowerCase();
+      const pass=passInput.value||'';
+      const cred=getCred();
+      if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){showError('সঠিক একটি Email দিন।');return}
+      if(!pass){showError('Password দিন।');return}
+      const hash=await sha256(cred.salt+':'+pass);
+      if(email===cred.email&&hash===cred.hash){unlock()}
+      else{showError('ভুল Email অথবা Password।')}
+    }catch(e){
+      showError('একটি সমস্যা হয়েছে: '+(e&&e.message?e.message:'Unknown error')+' — Page reload করে আবার চেষ্টা করুন।');
+    }
   }
 
   btn.addEventListener('click',handleSubmit);
